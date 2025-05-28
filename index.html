@@ -108,42 +108,45 @@
     </main>
     <script>
         const ADMIN_PASSWORD = "semutsektor32025";
-        let tokens = {};
-        let votes = {
-            Mewarnai: { "Sektor 1": 0, "Sektor 2": 0, "Sektor 3": 0, "Sektor 4": 0, "Sektor 5": 0, "Sektor 6": 0, "Sektor 7": 0 },
-            Menggambar: { "Sektor 1": 0, "Sektor 2": 0, "Sektor 3": 0, "Sektor 4": 0, "Sektor 5": 0, "Sektor 6": 0, "Sektor 7": 0 }
-        };
 
-        document.getElementById('submit-token').addEventListener('click', () => {
+        document.getElementById('submit-token').addEventListener('click', async () => {
             const tokenInput = document.getElementById('token').value.trim();
-            if (tokens[tokenInput] === undefined) {
-                alert("Token tidak valid.");
-                return;
+            const response = await fetch('http://localhost:5000/api/tokens/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: tokenInput }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                document.getElementById('voting-options').style.display = 'block';
+                document.getElementById('token').disabled = true;
+                document.getElementById('submit-token').disabled = true;
+                document.getElementById('vote-button').style.display = 'block';
+            } else {
+                alert(data.message);
             }
-            if (tokens[tokenInput]) {
-                alert("Token sudah digunakan.");
-                return;
-            }
-            tokens[tokenInput] = true; // Mark token as used
-            document.getElementById('voting-options').style.display = 'block';
-            document.getElementById('token').disabled = true;
-            document.getElementById('submit-token').disabled = true;
         });
 
-        document.getElementById('vote-button').addEventListener('click', () => {
+        document.getElementById('vote-button').addEventListener('click', async () => {
             const competition = document.querySelector('input[name="competition"]:checked');
             const sector = document.querySelector('input[name="sector"]:checked');
             if (competition && sector) {
-                votes[competition.value][sector.value]++;
-                alert("Terima kasih telah memberikan suara!");
+                const response = await fetch('http://localhost:5000/api/votes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ competition: competition.value, sector: sector.value }),
+                });
+                const data = await response.json();
+                alert(data.message);
                 document.getElementById('voting-options').style.display = 'none';
                 document.getElementById('token').disabled = false;
                 document.getElementById('submit-token').disabled = false;
                 document.getElementById('token').value = '';
+                document.getElementById('vote-button').style.display = 'none';
             }
         });
 
-        document.getElementById('admin-login').addEventListener('click', () => {
+        document.getElementById('admin-login').addEventListener('click', async () => {
             const password = document.getElementById('admin-password').value;
             if (password === ADMIN_PASSWORD) {
                 document.getElementById('admin-options').style.display = 'block';
@@ -156,11 +159,14 @@
             }
         });
 
-        document.getElementById('generate-token').addEventListener('click', () => {
-            const newToken = Math.random().toString(36).substring(2, 10).toUpperCase();
-            tokens[newToken] = false; // Token is unused
+        document.getElementById('generate-token').addEventListener('click', async () => {
+            const response = await fetch('http://localhost:5000/api/tokens', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            const data = await response.json();
+            alert("Token baru dibuat: " + data.token);
             renderTokenList();
-            alert("Token baru dibuat: " + newToken);
         });
 
         document.getElementById('admin-logout').addEventListener('click', () => {
@@ -170,24 +176,24 @@
             document.getElementById('admin-password').value = '';
         });
 
-        function renderResults() {
+        async function renderResults() {
+            const response = await fetch('http://localhost:5000/api/votes');
+            const results = await response.json();
             let resultHtml = "<ul>";
-            for (const [competition, sectors] of Object.entries(votes)) {
-                resultHtml += `<li>${competition}: `;
-                for (const [sector, count] of Object.entries(sectors)) {
-                    resultHtml += `${sector}: ${count}, `;
-                }
-                resultHtml += "</li>";
-            }
+            results.forEach(result => {
+                resultHtml += `<li>${result.competition} - ${result.sector}: ${result.count}</li>`;
+            });
             resultHtml += "</ul>";
             document.getElementById('results').innerHTML = resultHtml;
         }
 
-        function renderTokenList() {
+        async function renderTokenList() {
+            const response = await fetch('http://localhost:5000/api/tokens');
+            const tokens = await response.json();
             let tokenHtml = "<ul>";
-            for (const [token, used] of Object.entries(tokens)) {
-                tokenHtml += `<li>${token} - ${used ? "Sudah digunakan" : "Belum digunakan"}</li>`;
-            }
+            tokens.forEach(token => {
+                tokenHtml += `<li>${token.token} - ${token.used ? "Sudah digunakan" : "Belum digunakan"}</li>`;
+            });
             tokenHtml += "</ul>";
             document.getElementById('token-list').innerHTML = tokenHtml;
         }
