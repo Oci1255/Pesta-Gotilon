@@ -1,202 +1,153 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Polling Lomba Menggambar dan Mewarnai Pesta Gotilon 2025</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #7f0a0a, #ff7300);
-            color: white;
-            margin: 0;
-            padding: 0;
-        }
-        header {
-            text-align: center;
-            padding: 20px;
-            font-size: 24px;
-            background-color: #530404;
-        }
-        main {
-            display: flex;
-            justify-content: space-between;
-            padding: 20px;
-        }
-        .column {
-            width: 48%;
-            background: rgba(255, 115, 0, 0.1);
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-        h2 {
-            text-align: center;
-        }
-        label {
-            display: block;
-            margin: 10px 0 5px;
-        }
-        input[type="text"], input[type="password"], select {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: none;
-            border-radius: 5px;
-        }
-        button {
-            background-color: #ff7300;
-            color: white;
-            padding: 10px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            width: 100%;
-        }
-        button:hover {
-            background-color: #e65d00;
-        }
-        .results {
-            margin-top: 20px;
-        }
-        .token-list {
-            max-height: 100px;
-            overflow-y: auto;
-            background: rgba(255, 115, 0, 0.2);
-            padding: 10px;
-            border-radius: 5px;
-        }
-    </style>
-</head>
-<body>
-    <header>Polling Lomba Menggambar dan Mewarnai Pesta Gotilon 2025</header>
-    <main>
-        <div class="column" id="voting-column">
-            <h2>Polling Responden</h2>
-            <label for="token">Masukkan Token:</label>
-            <input type="text" id="token" placeholder="Token Anda">
-            <button id="submit-token">Submit Token</button>
-            <div id="voting-options" style="display:none;">
-                <h3>Pilih Lomba:</h3>
-                <label><input type="radio" name="competition" value="Mewarnai"> Mewarnai</label>
-                <label><input type="radio" name="competition" value="Menggambar"> Menggambar</label>
-                <h3>Pilih Sektor:</h3>
-                <label><input type="radio" name="sector" value="Sektor 1"> Sektor 1</label>
-                <label><input type="radio" name="sector" value="Sektor 2"> Sektor 2</label>
-                <label><input type="radio" name="sector" value="Sektor 3"> Sektor 3</label>
-                <label><input type="radio" name="sector" value="Sektor 4"> Sektor 4</label>
-                <label><input type="radio" name="sector" value="Sektor 5"> Sektor 5</label>
-                <label><input type="radio" name="sector" value="Sektor 6"> Sektor 6</label>
-                <label><input type="radio" name="sector" value="Sektor 7"> Sektor 7</label>
-                <button id="vote-button" style="display:none;">Vote</button>
-            </div>
-        </div>
-        <div class="column" id="admin-column">
-            <h2>Panel Admin</h2>
-            <label for="admin-password">Masukkan Password:</label>
-            <input type="password" id="admin-password" placeholder="Password Admin">
-            <button id="admin-login">Login</button>
-            <div id="admin-options" style="display:none;">
-                <h3>Hasil Polling</h3>
-                <div class="results" id="results"></div>
-                <h3>Token</h3>
-                <div class="token-list" id="token-list"></div>
-                <button id="generate-token">Generate Token</button>
-                <button id="admin-logout">Logout</button>
-            </div>
-        </div>
-    </main>
-    <script>
-        const ADMIN_PASSWORD = "semutsektor32025";
+const express = require('express');
+const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
+const cors = require('cors');
+&nbsp;
+&nbsp;
 
-        document.getElementById('submit-token').addEventListener('click', async () => {
-            const tokenInput = document.getElementById('token').value.trim();
-            const response = await fetch('http://localhost:5000/api/tokens/validate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: tokenInput }),
-            });
-            const data = await response.json();
-            if (response.ok) {
-                document.getElementById('voting-options').style.display = 'block';
-                document.getElementById('token').disabled = true;
-                document.getElementById('submit-token').disabled = true;
-                document.getElementById('vote-button').style.display = 'block';
-            } else {
-                alert(data.message);
+const app = express();
+const PORT = process.env.PORT || 5000;
+&nbsp;
+&nbsp;
+
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+&nbsp;
+&nbsp;
+
+// Koneksi ke MongoDB
+mongoose.connect('mongodb://localhost:27017/polling', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+.then(() => console.log('MongoDB connected'))
+.catch(err => console.error('MongoDB connection error:', err));
+&nbsp;
+&nbsp;
+
+// Skema dan Model untuk Token dan Voting
+const tokenSchema = new mongoose.Schema({
+    token: { type: String, required: true, unique: true },
+    used: { type: Boolean, default: false },
+});
+&nbsp;
+&nbsp;
+
+const voteSchema = new mongoose.Schema({
+    competition: String,
+    sector: String,
+});
+&nbsp;
+&nbsp;
+
+const Token = mongoose.model('Token', tokenSchema);
+const Vote = mongoose.model('Vote', voteSchema);
+&nbsp;
+&nbsp;
+
+// Endpoint untuk membuat token baru
+app.post('/api/tokens', async (req, res) => {
+    try {
+        const token = Math.random().toString(36).substring(2, 10).toUpperCase();
+        const newToken = new Token({ token });
+        await newToken.save();
+        res.json({ token });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Gagal membuat token baru.' });
+    }
+});
+&nbsp;
+&nbsp;
+
+// Endpoint untuk mengambil semua token
+app.get('/api/tokens', async (req, res) => {
+    try {
+        const tokens = await Token.find({}, { _id:0, token:1, used:1 }).sort({ token: 1 });
+        res.json(tokens);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Gagal mengambil daftar token.' });
+    }
+});
+&nbsp;
+&nbsp;
+
+// Endpoint untuk memeriksa dan menggunakan token
+app.post('/api/tokens/validate', async (req, res) => {
+    try {
+        const { token } = req.body;
+        if(!token) {
+            return res.status(400).json({ message: 'Token wajib diisi.' });
+        }
+        const foundToken = await Token.findOne({ token: token.toUpperCase() });
+        if (!foundToken) {
+            return res.status(404).json({ message: 'Token tidak valid.' });
+        }
+        if (foundToken.used) {
+            return res.status(400).json({ message: 'Token sudah digunakan.' });
+        }
+        foundToken.used = true;
+        await foundToken.save();
+        res.json({ message: 'Token valid dan digunakan.' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Terjadi kesalahan server.' });
+    }
+});
+&nbsp;
+&nbsp;
+
+// Endpoint untuk menyimpan suara
+app.post('/api/votes', async (req, res) => {
+    try {
+        const { competition, sector } = req.body;
+        if (!competition || !sector) {
+            return res.status(400).json({ message: 'Data voting tidak lengkap.' });
+        }
+        const newVote = new Vote({ competition, sector });
+        await newVote.save();
+        res.json({ message: 'Vote berhasil disimpan.' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Gagal menyimpan vote.' });
+    }
+});
+&nbsp;
+&nbsp;
+
+// Endpoint untuk mendapatkan hasil voting
+app.get('/api/votes', async (req, res) => {
+    try {
+        const results = await Vote.aggregate([
+            {
+                $group: {
+                    _id: { competition: "$competition", sector: "$sector" },
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $project: {
+                    competition: "$_id.competition",
+                    sector: "$_id.sector",
+                    count: "$count",
+                    _id: 0
+                }
             }
-        });
+        ]);
+        res.json(results);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Gagal mengambil hasil voting.' });
+    }
+});
+&nbsp;
+&nbsp;
 
-        document.getElementById('vote-button').addEventListener('click', async () => {
-            const competition = document.querySelector('input[name="competition"]:checked');
-            const sector = document.querySelector('input[name="sector"]:checked');
-            if (competition && sector) {
-                const response = await fetch('http://localhost:5000/api/votes', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ competition: competition.value, sector: sector.value }),
-                });
-                const data = await response.json();
-                alert(data.message);
-                document.getElementById('voting-options').style.display = 'none';
-                document.getElementById('token').disabled = false;
-                document.getElementById('submit-token').disabled = false;
-                document.getElementById('token').value = '';
-                document.getElementById('vote-button').style.display = 'none';
-            }
-        });
-
-        document.getElementById('admin-login').addEventListener('click', async () => {
-            const password = document.getElementById('admin-password').value;
-            if (password === ADMIN_PASSWORD) {
-                document.getElementById('admin-options').style.display = 'block';
-                document.getElementById('admin-password').disabled = true;
-                document.getElementById('admin-login').disabled = true;
-                renderResults();
-                renderTokenList();
-            } else {
-                alert("Password salah.");
-            }
-        });
-
-        document.getElementById('generate-token').addEventListener('click', async () => {
-            const response = await fetch('http://localhost:5000/api/tokens', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-            });
-            const data = await response.json();
-            alert("Token baru dibuat: " + data.token);
-            renderTokenList();
-        });
-
-        document.getElementById('admin-logout').addEventListener('click', () => {
-            document.getElementById('admin-options').style.display = 'none';
-            document.getElementById('admin-password').disabled = false;
-            document.getElementById('admin-login').disabled = false;
-            document.getElementById('admin-password').value = '';
-        });
-
-        async function renderResults() {
-            const response = await fetch('http://localhost:5000/api/votes');
-            const results = await response.json();
-            let resultHtml = "<ul>";
-            results.forEach(result => {
-                resultHtml += `<li>${result.competition} - ${result.sector}: ${result.count}</li>`;
-            });
-            resultHtml += "</ul>";
-            document.getElementById('results').innerHTML = resultHtml;
-        }
-
-        async function renderTokenList() {
-            const response = await fetch('http://localhost:5000/api/tokens');
-            const tokens = await response.json();
-            let tokenHtml = "<ul>";
-            tokens.forEach(token => {
-                tokenHtml += `<li>${token.token} - ${token.used ? "Sudah digunakan" : "Belum digunakan"}</li>`;
-            });
-            tokenHtml += "</ul>";
-            document.getElementById('token-list').innerHTML = tokenHtml;
-        }
-    </script>
-</body>
-</html>
+// Mulai server
+app.listen(PORT, () => {
+    console.log(`Server berjalan di http://localhost:${PORT}`);
+});
+&nbsp;
+&nbsp;
